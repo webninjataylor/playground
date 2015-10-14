@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Slideout Menu</title>
+    <link rel="stylesheet" href="../css/bootstrap.min.css">
+    <style>
+        /*
+            Main = rgba(37,76,106,1)
+            Main Selected = rgba(30,62,87,1)
+            Secondary Open = rgba(59,95,123,1)
+            Divider = rgba(39,87,124,1)
+            Caret = rgba(165,196,219,1)
+        */
+        body {
+            background-color: #eee;
+        }
+        #zone-menu {
+            background-color: rgba(37,76,106,1);
+            color: #fff;
+            cursor: pointer;
+            float: left;
+            height: 100vh;
+            list-style: none;
+            margin: 0;
+            overflow: hidden;
+            padding: 0;
+            position: relative;
+        }
+        #zone-menu .glyphicon {
+            font-size: 24px;
+            margin-right: 8px;
+        }
+        #zone-menu ul,
+        #zone-menu ul ul {
+            background-color: rgba(46,65,88,1);
+            border: 1px solid rgba(39,87,124,1);
+            display: none;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            position: absolute;
+            left: 200px;
+            top: 0;
+        }
+        #zone-menu ul ul {
+            background-color: rgba(59,95,123,1);
+            position: static;
+        }
+        #zone-menu.active {
+            overflow: visible;
+        }
+        #zone-menu li {
+            /*background: url('../images/arrow.svg') no-repeat right middle;
+            background-size: 7px;*/
+            border-bottom: 1px solid rgba(39,87,124,1);
+            float: none;
+            padding: 8px;
+            position: relative;
+            white-space: nowrap;
+        }
+        #zone-menu li:hover {
+            background-color: rgba(30,62,87,1);
+        }
+        .page-wrapper {
+            display: flex;
+        }
+        .main-content {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            width: 80%;
+        }
+        .right-rail {
+            display: flex;
+            height: 100vh;
+            padding: 20px 20px 20px 0;
+            width: 20%;
+        }
+        .content-wrapper {
+            background-color: #fff;
+            height: 100%;
+            padding: 20px;
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <ul id="zone-menu">
+        <li><span class="glyphicon glyphicon-glass" aria-hidden="true"></span>Groups
+            <ul>
+                <li>Civil Commercial Group
+                    <ul>
+                        <li>Commercial</li>
+                        <li>Finance, Energy, &amp; Economic Development</li>
+                        <li>Health</li>
+                        <li>Justice, Homeland Security, &amp; Transportation</li>
+                    </ul>
+                </li>
+                <li>Defense &amp; Intelligence Group
+                    <ul>
+                        <li>Air Force</li>
+                        <li>Army</li>
+                        <li>Booz Allen Technical Support</li>
+                        <li>Cyber</li>
+                        <li>DIA ＆ Military Intel</li>
+                        <li>Engineering</li>
+                        <li>Infrastructure ＆ Military Health</li>
+                        <li>International</li>
+                        <li>Joint Combatant Commands</li>
+                        <li>National Agencies</li>
+                        <li>Navy Marine Corps</li>
+                    </ul>
+                </li>
+                <li>Strategic Innovation Group
+                    <ul>
+                        <li>Digital</li>
+                        <li>Innovation Culture, Ventures and Solutions</li>
+                        <li>NextGen Analytics</li>
+                        <li>Predictive Intelligence</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li><span class="glyphicon glyphicon-shopping-cart" aria-hidden="true"></span>Campaigns
+            <ul>
+                <li>100 Years</li>
+                <li>Connect Tour</li>
+                <li>Vision 2020</li>
+            </ul>
+        </li>
+        <li><span class="glyphicon glyphicon-random" aria-hidden="true"></span>Team Sites</li>
+        <li><span class="glyphicon glyphicon-music" aria-hidden="true"></span>Functional Communities</li>
+        <li><span class="glyphicon glyphicon-home" aria-hidden="true"></span>Our Firm
+            <ul>
+                <li>Events</li>
+                <li>News</li>
+                <li>Our Leaders</li>
+                <li>People Model</li>
+                <li>Systems Delivery</li>
+                <li>Total Rewards</li>
+            </ul>
+        </li>
+        <li><span class="glyphicon glyphicon-fire" aria-hidden="true"></span>Help</li>
+        <li><span class="glyphicon glyphicon-thumbs-up" aria-hidden="true"></span>Feedback</li>
+    </ul>
+
+
+    <div class="page-wrapper">
+        <div class="main-content">
+            <div class="content-wrapper">Main Content</div>
+        </div>
+        <div class="right-rail">
+            <div class="content-wrapper">Right Rail</div>
+        </div>
+    </div>
+
+            
+    <script src="../js/jquery.js"></script>    
+    <script src="../js/jquery.easing.1.3.js"></script>
+    <script src="../js/bootstrap.min.js"></script>
+    <script>
+        $(function(){
+            var menuWidth = $('#zone-menu').width();   // Get initial menu width (based on text length of longest item)
+            $('#zone-menu').width('40px');   // Set initial menu width to show only the icons
+            $('#zone-menu ul').css('left',menuWidth+8);
+            $('#zone-menu').hover(
+                function(event){
+                    $('#zone-menu').toggleClass('active').stop( true, true ).animate(
+                        {
+                            width: menuWidth+8   // Use initial menu width for expansion and add padding
+                        },
+                        500
+                    );
+                }, function(){
+                    $('#zone-menu').toggleClass('active').stop( true, true ).animate(
+                        {
+                            width: '40px'
+                        },
+                        500
+                    );
+                }
+            );
+            $('#zone-menu li').hover(
+                function(event){
+                    $(this).find('ul').eq(0).show();  // Need to make overflow visible after it expands and then hidden again
+                }, function(){
+                    $(this).find('ul').eq(0).hide();
+                }
+            );
+        });
+    </script>
+</body>
+</html>
