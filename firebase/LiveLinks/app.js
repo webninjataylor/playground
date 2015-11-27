@@ -8,10 +8,24 @@ function LiveLinks(fbname) {
     var usersRef = firebase.child('users');
     var instance = this;
     // STEP 3 (lecture 2.3): Add logic for form submission using the URL value as the unique key; which needs to be Base-64 encoded since Firebase doesn't allow special characters including periods in Firebase keys
+    // Create many-to-many relationship through the submit link callback to keep data flat
     this.submitLink = function(url, title){
         url = url.substring(0,4) !== "http" ? "http://" + url : url;
-        linksRef.child(btoa(url)).set({
+        linksRef.child(btoa(url)).update({
             title: title
+        }, function(error){
+            if(error){
+                instance.onError(error);
+            } else {
+                linksRef.child(btoa(url))
+                        .child('users')
+                        .child(instance.auth.uid)
+                        .set(true);
+                usersRef.child(instance.auth.uid)
+                        .child('links')
+                        .child(btoa(url))
+                        .set(true);
+            }
         });
     };
 
@@ -48,12 +62,28 @@ function LiveLinks(fbname) {
         firebase.unauth();
     };
 
+    function getSubmitters(linkId, userIds){
+        if(userIds){
+            $.each(userIds, function(userId){
+                var linkUserRef = linksRef.child(linkId).child('users').child(userId);
+                linkUserRef.once('value', function(snapshot){
+                    usersRef.child(snapshot.key())
+                            .child('alias')
+                            .once('value', function(snapshot){
+                                instance.onLinkUserAdded(linkId, snapshot.val());
+                            })
+                })
+            });
+        }
+    };
+
 
     // STEP 3 (lecture 2.3): Add a listener to the database for changes
     // overrideable event functions
-    this.onLinksChanged = function(links) {};   // Why did he add this??? ... needed to set onLinksChanged as a function so this.onLinksChanged() below doesn't fail when running other code from console.  Weird.
     this.onLogin = function(user) {};
     this.onLogout = function() {};
+    this.onLinksChanged = function(links) {};   // Why did he add this??? ... needed to set onLinksChanged as a function so this.onLinksChanged() below doesn't fail when running other code from console.  Weird.
+    this.onLinkUserAdded = function(linkId, alias) {};    
     this.onError = function(error) {};
 
     // setup long-running firebase listeners
@@ -77,11 +107,13 @@ function LiveLinks(fbname) {
                 if(links.hasOwnProperty(url)){
                     preparedLinks.push({
                         title: links[url].title,
-                        url: atob(url)   // Decode URL
+                        url: atob(url),   // Decode URL
+                        id: url
                     });
+                    getSubmitters(url, links[url].users);
                 }
             }
-            this.onLinksChanged(preparedLinks);
+            instance.onLinksChanged(preparedLinks);
         }.bind(this));
 
     };
@@ -99,7 +131,7 @@ $(document).ready(function(){
         $(".link-form").toggle();       
     });
 
-    
+
     // STEP 3 (lecture 2.3): Call the object's submitLink method (we created above) when the form is submitted
     $('.link-form form').submit(function(event){
         event.preventDefault();
@@ -111,9 +143,18 @@ $(document).ready(function(){
     ll.onLinksChanged = function(links){
         $('.links-list').empty();
         links.map(function(link){
-            var linkElement = "<li class='list-group-item'><a href='" + link.url + "'>" + link.title + "</a></li>";
+            var linkElement = "<li data-id='" + link.id + "' class='list-group-item'>" +
+                                "<a href='" + link.url + "'>" + link.title + "</a><br>" +
+                                "<span class='submitters'>Submitted by:</span>"
+                              "</li>";
             $('.links-list').append(linkElement);
         });
+    };
+    ll.onLinkUserAdded = function(linkId, alias){
+        var submitters = $("[data-id='" + linkId + "'] span.submitters");
+        if(submitters.text().indexOf(alias) == -1){
+            submitters.append(" " + alias);
+        }
     };
     ll.onLogin = function() {
         $(".auth-links .login, .auth-links .signup, .auth-forms").hide();
