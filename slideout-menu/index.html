@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Slideout Menu</title>
-    <link rel="stylesheet" href="../css/bootstrap.min.css">
     <link rel="stylesheet" href="../css/bah-bundle.css">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
     <style>
@@ -31,6 +30,10 @@
         }
         #zone-menu .glyphicon {
             font-size: 24px;
+            margin-right: 8px;
+        }
+        #zone-menu .fa {
+            margin-left: -6px;
             margin-right: 8px;
         }
         #zone-menu ul,
@@ -88,7 +91,7 @@
 <body>
 
     <ul id="zone-menu">
-        <li><span class="glyphicon glyphicon-glass" aria-hidden="true"></span>Groups
+        <li><i class="fa fa-group fa-2x fa-fw"></i>Groups
             <ul>
                 <li>Civil Commercial Group
                     <ul>
@@ -123,16 +126,16 @@
                 </li>
             </ul>
         </li>
-        <li><span class="glyphicon glyphicon-shopping-cart" aria-hidden="true"></span>Campaigns
+        <li><i class="fa fa-bullhorn fa-2x fa-fw"></i>Campaigns
             <ul>
                 <li>100 Years</li>
                 <li>Connect Tour</li>
                 <li>Vision 2020</li>
             </ul>
         </li>
-        <li><span class="glyphicon glyphicon-random" aria-hidden="true"></span>Team Sites</li>
-        <li><span class="glyphicon glyphicon-music" aria-hidden="true"></span>Functional Communities</li>
-        <li><span class="glyphicon glyphicon-home" aria-hidden="true"></span>Our Firm
+        <li><i class="fa fa-folder-open fa-2x fa-fw"></i>Team Sites</li>
+        <li><i class="fa fa-cogs fa-2x fa-fw"></i>Functional Communities</li>
+        <li><i class="fa fa-building fa-2x fa-fw"></i>Our Firm
             <ul>
                 <li>Events</li>
                 <li>News</li>
@@ -142,14 +145,14 @@
                 <li>Total Rewards</li>
             </ul>
         </li>
-        <li><span class="glyphicon glyphicon-fire" aria-hidden="true"></span>Help</li>
-        <li><span class="glyphicon glyphicon-thumbs-up" aria-hidden="true"></span>Feedback</li>
+        <li><i class="fa fa-wrench fa-2x fa-fw"></i>Help</li>
+        <li><i class="fa fa-comments fa-2x fa-fw"></i>Feedback</li>
     </ul>
 
 
     <div class="page-wrapper">
         <div class="main-content">
-            <div class="content-wrapper"><i class="fa fa-ticket"></i>Main Content</div>
+            <div class="content-wrapper">Main Content</div>
         </div>
         <div class="right-rail">
             <div class="content-wrapper">Right Rail
@@ -242,7 +245,6 @@
             
     <script src="../js/jquery.js"></script>    
     <script src="../js/jquery.easing.1.3.js"></script>
-    <script src="../js/bootstrap.min.js"></script>
     <!--<script src="../js/bah-bundle.js"></script>-->
     <script>
         $(function(){
