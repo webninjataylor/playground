@@ -29,12 +29,21 @@ function LiveLinks(fbname) {
         });
     };
 
+    this.vote = function(voteId, voteVal){
+        console.log(instance);
+        linksRef.child(voteId)
+                .child('votes')
+                .child(instance.auth.uid)
+                .set(voteVal);
+    };
+
     this.login = function(email, password) {
         firebase.authWithPassword({
             email: email,
             password: password
-        }, function(error) {
+        }, function(error, authResponse) {
             if (error) { instance.onError(error) }
+            else { instance.auth = authResponse; }
         });
     };
 
@@ -105,16 +114,23 @@ function LiveLinks(fbname) {
             var preparedLinks = [];
             for(var url in links){
                 if(links.hasOwnProperty(url)){
+                    var voteTotal = 0;
+                    if(links[url].votes){
+                        $.each(links[url].votes, function(userId, val){
+                            voteTotal += val;
+                        });
+                    }
                     preparedLinks.push({
                         title: links[url].title,
                         url: atob(url),   // Decode URL
-                        id: url
+                        id: url,
+                        voteTotal: voteTotal
                     });
                     getSubmitters(url, links[url].users);
                 }
             }
             instance.onLinksChanged(preparedLinks);
-        }.bind(this));
+        });
 
     };
 
@@ -140,14 +156,20 @@ $(document).ready(function(){
         return false;
     });
     // STEP 3 (lecture 2.3): Show list of links as they are changed
-    ll.onLinksChanged = function(links){
-        $('.links-list').empty();
-        links.map(function(link){
-            var linkElement = "<li data-id='" + link.id + "' class='list-group-item'>" +
-                                "<a href='" + link.url + "'>" + link.title + "</a><br>" +
-                                "<span class='submitters'>Submitted by:</span>"
-                              "</li>";
-            $('.links-list').append(linkElement);
+    ll.onLinksChanged = function(links) {
+        $(".links-list").empty();
+        links.map(function(link) {
+            var linkElement = "<li data-id='" + link.id + "' class='list-group-item'>"  + 
+                              "<span class='vote-total'>" + link.voteTotal + "</span>" +
+                              "<span class='glyphicon glyphicon-triangle-top up vote' data-val='1'></span>"   +
+                              "<span class='glyphicon glyphicon-triangle-bottom down vote' data-val='-1'></span>"   +
+                              "<a href='" + link.url + "'>" + link.title + "</a><br>" + 
+                              "<span class='submitters'>submitted by:</span>"         + 
+                            "</li>";
+            $(".links-list").append(linkElement);
+        });
+        $(".vote").click(function(event) {
+            ll.vote($(this).parent().data().id, $(this).data().val);
         });
     };
     ll.onLinkUserAdded = function(linkId, alias){
