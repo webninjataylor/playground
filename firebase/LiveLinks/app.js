@@ -1,53 +1,59 @@
-// STEP 1 (lecture 1.3): Create a global constructor for our app's application code that takes a Firebase application name as its first parameter
 function LiveLinks(fbname) {
-    // STEP 2 (lecture 1.3): Create a Firebase reference by invoking Firebase with the application name parameter and assign it to the local scope using the key "firebase"
-    var firebase = new Firebase('https://' + fbname + '.firebaseio.com/');
-    this.firebase = firebase;
-    // STEP 2 (lecture 1.3): Create a reference to the target node
-    var linksRef = firebase.child('links');
-    var usersRef = firebase.child('users');
-    var instance = this;
-    // STEP 3 (lecture 2.3): Add logic for form submission using the URL value as the unique key; which needs to be Base-64 encoded since Firebase doesn't allow special characters including periods in Firebase keys
-    // Create many-to-many relationship through the submit link callback to keep data flat
-    this.submitLink = function(url, title){
-        url = url.substring(0,4) !== "http" ? "http://" + url : url;
-        linksRef.child(btoa(url)).update({
-            title: title
-        }, function(error){
-            if(error){
-                instance.onError(error);
-            } else {
-                linksRef.child(btoa(url))
-                        .child('users')
-                        .child(instance.auth.uid)
-                        .set(true);
-                usersRef.child(instance.auth.uid)
-                        .child('links')
-                        .child(btoa(url))
-                        .set(true);
-            }
-        });
-    };
 
-    this.vote = function(voteId, voteVal){
-        console.log(instance);
-        linksRef.child(voteId)
-                .child('votes')
-                .child(instance.auth.uid)
-                .set(voteVal);
-    };
+  var firebase = new Firebase("https://" + fbname + ".firebaseio.com/");
+  this.firebase = firebase;
+  var linksRef = firebase.child('links');
+  var usersRef = firebase.child('users');
+  var votesRef = firebase.child('votes');
+  var aliasesRef = firebase.child('aliases');
+  var instance = this;
 
-    this.login = function(email, password) {
-        firebase.authWithPassword({
-            email: email,
-            password: password
-        }, function(error, authResponse) {
-            if (error) { instance.onError(error) }
-            else { instance.auth = authResponse; }
-        });
-    };
+  this.submitLink = function(url, title) {
+    url = url.substring(0,4) !== "http" ? "http://" + url : url;
+    var linkRef = linksRef.child(btoa(url));
+    linkRef.update({
+      title: title
+    }, function(error) {
+      if (error) { 
+        instance.onError(error)
+      } else {
+        linkRef.child('users')
+               .child(instance.auth.uid)
+               .set(true)
+        usersRef.child(instance.auth.uid)
+                .child('links')
+                .child(btoa(url))
+                .set(true);
+        instance.vote(btoa(url), 1);
+        linkRef.child('author')
+               .set(instance.auth.uid);        
+        linkRef.child('createdAt')
+               .set(Firebase.ServerValue.TIMESTAMP);
+      } 
+    });
+  };
 
-    this.signup = function(alias, email, password) {
+  this.vote = function(linkId, voteVal) {
+    linksRef.child(linkId)
+            .child('votes')
+            .child(instance.auth.uid)
+            .set(voteVal);
+  }
+
+  this.login = function(email, password) {
+    firebase.authWithPassword({
+        email: email,
+        password: password
+    }, function(error) {
+        if (error) { instance.onError(error) }
+    });
+  };
+
+  this.signup = function(alias, email, password) {
+    aliasesRef.child(alias).once('value', function(snapshot) {
+      if (snapshot.val()) {
+        instance.onError({message: "That alias is taken"});
+      } else {
         firebase.createUser({
             email: email, 
             password: password
@@ -60,85 +66,90 @@ function LiveLinks(fbname) {
                     if (error) {
                         instance.onError(error);
                     } else {
+                aliasesRef.child(alias).set(instance.auth.uid);
                         instance.login(email, password);
                     }
                 });
             }
         });
-    };
+      }
+    })
+  };
 
-    this.logout = function() {
-        firebase.unauth();
-    };
+  this.logout = function() {
+    firebase.unauth();
+  };
 
-    function getSubmitters(linkId, userIds){
-        if(userIds){
-            $.each(userIds, function(userId){
-                var linkUserRef = linksRef.child(linkId).child('users').child(userId);
-                linkUserRef.once('value', function(snapshot){
-                    usersRef.child(snapshot.key())
-                            .child('alias')
-                            .once('value', function(snapshot){
-                                instance.onLinkUserAdded(linkId, snapshot.val());
-                            })
-                })
+  function getSubmitters(linkId, userIds) {
+    if (userIds) {
+      $.each(userIds, function(userId) {
+        var linkUserRef = linksRef.child(linkId).child('users').child(userId);
+        linkUserRef.once('value', function(snapshot) {
+          usersRef.child(snapshot.key())
+                  .child('alias')
+                  .once('value', function(snapshot) {
+                    instance.onLinkUserAdded(linkId, snapshot.val());
+                  });
+        });
+      });
+    }
+  }
+
+  // overrideable event functions
+  this.onLogin = function(user) {};
+  this.onLogout = function() {};
+  this.onLinksChanged = function(links) {};
+  this.onLinkUserAdded = function(linkId, alias) {};
+  this.onError = function(error) {};
+
+
+  // setup long-running firebase listeners 
+  this.start = function() {
+
+      firebase.onAuth(function(authResponse) {
+        if (authResponse) {
+        instance.auth = authResponse;
+            usersRef.child(authResponse.uid).once('value', function(snapshot) {
+                instance.user = snapshot.val();
+                instance.onLogin(instance.user);
             });
+        } else {
+            instance.onLogout();
         }
-    };
+      });
 
+      linksRef.on('value', function(snapshot) {
+        var links = snapshot.val();
+        var preparedLinks = [];
+        for (var url in links) {
+          if (links.hasOwnProperty(url)) {
+          var voteTotal = 0;
+          if (links[url].votes) {
+            $.each(links[url].votes, function(userId, val) {
+              voteTotal += val;
+            });
+          }
+            preparedLinks.push({
+              title: links[url].title,
+              url: atob(url),
+            id: url,
+            voteTotal: voteTotal
+            })
+        getSubmitters(url, links[url].users);  
+        }
+        }
+        instance.onLinksChanged(preparedLinks);
+      });
 
-    // STEP 3 (lecture 2.3): Add a listener to the database for changes
-    // overrideable event functions
-    this.onLogin = function(user) {};
-    this.onLogout = function() {};
-    this.onLinksChanged = function(links) {};   // Why did he add this??? ... needed to set onLinksChanged as a function so this.onLinksChanged() below doesn't fail when running other code from console.  Weird.
-    this.onLinkUserAdded = function(linkId, alias) {};    
-    this.onError = function(error) {};
-
-    // setup long-running firebase listeners
-    this.start = function(){
-
-        firebase.onAuth(function(authResponse){
-            if(authResponse){
-                usersRef.child(authResponse.uid).once('value', function(snapshot){
-                    instance.user = snapshot.val();
-                    instance.onLogin(instance.user);
-                });
-            } else {
-                instance.onLogout();
-            }
-        });
-
-        linksRef.on('value', function(snapshot){
-            var links = snapshot.val();
-            var preparedLinks = [];
-            for(var url in links){
-                if(links.hasOwnProperty(url)){
-                    var voteTotal = 0;
-                    if(links[url].votes){
-                        $.each(links[url].votes, function(userId, val){
-                            voteTotal += val;
-                        });
-                    }
-                    preparedLinks.push({
-                        title: links[url].title,
-                        url: atob(url),   // Decode URL
-                        id: url,
-                        voteTotal: voteTotal
-                    });
-                    getSubmitters(url, links[url].users);
-                }
-            }
-            instance.onLinksChanged(preparedLinks);
-        });
-
-    };
+  };
 
 };
 
-$(document).ready(function(){
-    // STEP 2 (lecture 1.3): Instantiate a new object for the Firebase app on document load
+
+$(document).ready(function() {
+
     var ll = new LiveLinks('livelinks20151123');
+
     ll.onError = function(error) {
         alert(error.message);
     }
@@ -147,138 +158,89 @@ $(document).ready(function(){
         $(".link-form").toggle();       
     });
 
+    $(".link-form form").submit(function(event) {
+    ll.submitLink($(this).find('input.link-url').val(), $(this).find('input.link-title').val());
+    $(".link-form").hide();
+    return false;
+  });
 
-    // STEP 3 (lecture 2.3): Call the object's submitLink method (we created above) when the form is submitted
-    $('.link-form form').submit(function(event){
-        event.preventDefault();
-        ll.submitLink($(this).find('input.link-url').val(), $(this).find('input.link-title').val());
-        $(this).find('input[type=text]').val('').blur();
-        return false;
-    });
-    // STEP 3 (lecture 2.3): Show list of links as they are changed
-    ll.onLinksChanged = function(links) {
-        $(".links-list").empty();
-        links.map(function(link) {
-            var linkElement = "<li data-id='" + link.id + "' class='list-group-item'>"  + 
-                              "<span class='vote-total'>" + link.voteTotal + "</span>" +
-                              "<span class='glyphicon glyphicon-triangle-top up vote' data-val='1'></span>"   +
-                              "<span class='glyphicon glyphicon-triangle-bottom down vote' data-val='-1'></span>"   +
-                              "<a href='" + link.url + "'>" + link.title + "</a><br>" + 
-                              "<span class='submitters'>submitted by:</span>"         + 
-                            "</li>";
-            $(".links-list").append(linkElement);
-        });
-        $(".vote").click(function(event) {
-            ll.vote($(this).parent().data().id, $(this).data().val);
-        });
-    };
-    ll.onLinkUserAdded = function(linkId, alias){
-        var submitters = $("[data-id='" + linkId + "'] span.submitters");
-        if(submitters.text().indexOf(alias) == -1){
-            submitters.append(" " + alias);
-        }
-    };
-    ll.onLogin = function() {
-        $(".auth-links .login, .auth-links .signup, .auth-forms").hide();
-        $(".auth-links .logout").show();
-    };
-
-    ll.onLogout = function() {
-        $(".auth-links .login, .auth-links .signup").show();
-        $(".auth-links .logout").hide();
-    };
-
-    $(".auth-links .login a").click(function() {
-        $(".auth-forms, .auth-forms .login").show();
-        $(".auth-forms .signup").hide();
-        return false;
+  ll.onLinksChanged = function(links) {
+    $(".links-list").empty();
+    links.map(function(link) {
+      var linkElement = "<li data-id='" + link.id + "' class='list-group-item'>"  + 
+                          "<span class='vote-total'>" + link.voteTotal + "</span>" +
+                          "<span class='glyphicon glyphicon-triangle-top up vote' data-val='1'></span>"   +
+                          "<span class='glyphicon glyphicon-triangle-bottom down vote' data-val='-1'></span>"   +
+                          "<a href='" + link.url + "'>" + link.title + "</a><br>" + 
+                          "<span class='submitters'>submitted by:</span>"         + 
+                        "</li>";
+      $(".links-list").append(linkElement);
     });
 
-    $(".auth-links .signup a").click(function() {
-        $(".auth-forms .login").hide();
-        $(".auth-forms, .auth-forms .signup").show();
-        return false;
+    $(".vote").click(function(event) {
+      ll.vote($(this).parent().data().id, $(this).data().val);
     });
+  };
 
-    $(".auth-links .logout a").click(function() {
-        ll.logout();
-        return false;
-    });
-
-    $(".auth-forms .login form").submit(function(event) {
-        ll.login($(this).find('input.login-email').val(), $(this).find('input.login-password').val());
-        return false;
-    });
-
-    $(".auth-forms .signup form").submit(function(event) {
-        var alias = $(this).find('input.signup-alias').val(),
-        email = $(this).find('input.signup-email').val(), 
-        password = $(this).find('input.signup-password').val(),
-        passwordConfirm = $(this).find('input.signup-password-confirm').val();
-        if (password === passwordConfirm) {
-            ll.signup(alias, email, password);
-        }
-        return false;
-    });
-
-
-    ll.start();
-});
-
-
-/* Firebase Methods
-    child
-    child_added
-    child_changed
-    child_removed
-    push                ... appends to the node
-    set()               ... changes everything in that node
-    on('value', ... )   ... listens and returns whole list
-    update()
-    remove()
-    .firebase.authWithPassword({email: '', password: ''}, function(error, authObj){}) ... if no error, error is null, else it's a message
-    .firebase.unauth()
-    onAuth()            ... when auth changes
-    .unauth()           ... logout
-    getAuth()           ... is the user logged in?  null if not
-*/
-/*
-ll.firebase.createUser({email: 'taylor.westin@gmail.com', password: 'password!'}, function(error, authResponse){
-    authObj = authResponse;
-});
-// Create users node in Firebase
-users = ll.firebase.child('users');
-// Create new user in node using the UID in the authObj
-user = users.child(authObj.uid);
-user.set({alias: 'Secret Agent'});  // This is when all above gets created in Firebase
-
-ll.firebase.authWithPassword({
-    email: 'taylor.westin@gmail.com',
-    password: 'password!'
-}, function(error, authResponse){
-    if(authResponse){
-        users.child(authResponse.uid).on('value', function(snapshot){
-            currentUser = snapshot.val();
-        })
-        console.log('Logged in user :: ', authResponse);
-    } else {
-        console.log('User logged out!');
+  ll.onLinkUserAdded = function(linkId, alias) {
+    var submitters = $("[data-id='" + linkId + "'] span.submitters");
+    if (submitters.text().indexOf(alias) == -1) {
+      submitters.append(" " + alias);
     }
-});
+  };
 
+  ll.onLogin = function() {
+    $(".auth-links .login, .auth-links .signup, .auth-forms").hide();
+    $(".auth-links .logout").show();
+  };
 
-ll.firebase.onAuth(function(authResponse){
-    if(authResponse){
-        console.log('Logged in user :: ', authResponse);
-    } else {
-        console.log('User logged out!');
+  ll.onLogout = function() {
+    $(".auth-links .login, .auth-links .signup").show();
+    $(".auth-links .logout").hide();
+  };
+
+  $(".auth-links .login a").click(function() {
+    $(".auth-forms, .auth-forms .login").show();
+    $(".auth-forms .signup").hide();
+    return false;
+  });
+
+  $(".auth-links .signup a").click(function() {
+    $(".auth-forms .login").hide();
+    $(".auth-forms, .auth-forms .signup").show();
+    return false;
+  });
+
+  $(".auth-links .logout a").click(function() {
+    ll.logout();
+    return false;
+  });
+
+  $(".auth-forms .login form").submit(function(event) {
+    ll.login($(this).find('input.login-email').val(), $(this).find('input.login-password').val());
+    return false;
+  });
+
+  $(".auth-forms .signup form").submit(function(event) {
+    var alias = $(this).find('input.signup-alias').val(),
+          email = $(this).find('input.signup-email').val(), 
+          password = $(this).find('input.signup-password').val(),
+          passwordConfirm = $(this).find('input.signup-password-confirm').val();
+    if (password === passwordConfirm) {
+        ll.signup(alias, email, password);
     }
+    return false;
+  });
+
+  
+
+
+  ll.start();
+
 });
 
 
 
-ll.firebase.getAuth();
-*/
 
 
 
