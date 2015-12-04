@@ -67,7 +67,7 @@
         #zone-menu li:hover {
             background-color: rgba(30,62,87,1);
         }
-        .page-wrapper {
+        .layout-wrapper {
             display: flex;
         }
         .main-content {
@@ -150,7 +150,7 @@
     </ul>
 
 
-    <div class="page-wrapper">
+    <div class="layout-wrapper">
         <div class="main-content">
             <div class="content-wrapper">Main Content</div>
         </div>
@@ -276,13 +276,13 @@
                 }
             );
             // Set menu height equal to content height on initial page load
-            $('#zone-menu').height($('.page-wrapper').height());
+            $('#zone-menu').height($('.layout-wrapper').height());
         });
 
 
         // Set menu height equal to content height when window is resized
         $(window).resize(function(){
-            $('#zone-menu').height($('.page-wrapper').height());
+            $('#zone-menu').height($('.layout-wrapper').height());
         });
     </script>
 </body>
